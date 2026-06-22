@@ -1,6 +1,7 @@
 # VPA Dashboard Strategy Lab with Portfolio Backtest + Market Scanner
 # Educational only. Not financial advice.
 
+import os
 import time
 from io import StringIO
 import requests
@@ -19,8 +20,8 @@ st.set_page_config(page_title="VPA TradingBot", layout="wide")
 # Simple Login Gate
 # -----------------------------
 
-APP_USERNAME = "caullenellis"
-APP_PASSWORD = "PrincessDani"
+APP_USERNAME = os.getenv("APP_USERNAME", "caullenellis")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "PrincessDani")
 
 
 def login_gate():
