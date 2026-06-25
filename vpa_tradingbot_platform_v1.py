@@ -29,27 +29,6 @@ def login_gate():
         st.session_state.authenticated = False
 
     if st.session_state.authenticated:
-        with st.sidebar:
-            st.markdown(
-                """
-                <div style="text-align:center; padding: 0.65rem 0 1rem 0;">
-                    <div style="font-size:1.25rem; font-weight:900; color:#f5f5f5;">
-                        VPA TradingBot
-                    </div>
-                    <div style="font-size:0.72rem; color:rgba(255,255,255,0.48); letter-spacing:0.16rem;">
-                        VOLUME · PRICE · ANALYSIS
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.success(f"Logged in as {APP_USERNAME}")
-
-            if st.button("Logout", use_container_width=True):
-                st.session_state.authenticated = False
-                st.rerun()
-
         return True
 
     st.markdown(
@@ -1062,7 +1041,7 @@ st.sidebar.title("VPA TradingBot")
 st.sidebar.caption("VOLUME · PRICE · ANALYSIS")
 st.sidebar.success(f"Logged in as {APP_USERNAME}")
 
-if st.sidebar.button("Logout", use_container_width=True):
+if st.sidebar.button("Logout", use_container_width=True, key="sidebar_logout_button"):
     st.session_state.authenticated = False
     st.rerun()
 
