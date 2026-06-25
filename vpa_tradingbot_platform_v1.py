@@ -903,64 +903,223 @@ def display_performance_tracker_page():
         )
 
 
+
+# -----------------------------
+# Platform Dashboard Helpers
+# -----------------------------
+
+def display_home_dashboard():
+    st.title("Good morning, Caullen! 👋")
+    st.caption("Here’s what’s happening with your trading platform today.")
+
+    data, error = load_performance_tracker()
+
+    current_balance = None
+    ytd_gains = None
+    latest_win_rate = None
+    total_trades = None
+    latest_week = None
+
+    if not error and data:
+        df_perf = data["weekly"]
+        actual_rows = df_perf[df_perf["Actual End Balance"].notna()].copy()
+
+        if not actual_rows.empty:
+            latest = actual_rows.iloc[-1]
+            current_balance = latest["Actual End Balance"]
+            latest_week = int(latest["Week"]) if pd.notna(latest["Week"]) else None
+            ytd_gains = actual_rows["Actual Gains $"].sum(skipna=True)
+            latest_win_rate = latest["Win Rate"]
+            total_trades = actual_rows["Number of Trades"].sum(skipna=True)
+
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+
+    kpi1.metric(
+        "Account Balance",
+        f"${current_balance:,.2f}" if current_balance is not None and pd.notna(current_balance) else "Pending"
+    )
+
+    kpi2.metric(
+        "YTD P/L",
+        f"${ytd_gains:,.2f}" if ytd_gains is not None and pd.notna(ytd_gains) else "Pending"
+    )
+
+    kpi3.metric(
+        "Win Rate",
+        f"{latest_win_rate:.1%}" if latest_win_rate is not None and pd.notna(latest_win_rate) else "Pending"
+    )
+
+    kpi4.metric(
+        "Total Trades",
+        f"{int(total_trades):,}" if total_trades is not None and pd.notna(total_trades) else "Pending"
+    )
+
+    kpi5.metric(
+        "Bot Status",
+        "Manual Mode"
+    )
+
+    st.divider()
+
+    left, right = st.columns([1.35, 1])
+
+    with left:
+        st.subheader("Account Equity Curve")
+
+        if not error and data and not actual_rows.empty:
+            st.plotly_chart(
+                make_performance_line_chart(actual_rows),
+                use_container_width=True,
+                config={"scrollZoom": True, "displayModeBar": True}
+            )
+        else:
+            st.info("Upload `Performance Tracker.xlsx` to populate the equity curve.")
+
+    with right:
+        st.subheader("Platform Status")
+
+        st.success("Website: Online")
+        st.info("IBKR: Local TWS Required")
+        st.warning("Automation: Not Enabled Yet")
+        st.caption("Next milestone: connect VPA signals to the local IBKR paper-trading engine.")
+
+        st.subheader("Next Actions")
+        st.markdown(
+            """
+            1. Verify Performance page.
+            2. Build trade journal table.
+            3. Add IBKR position monitor.
+            4. Wire scanner signals into paper trades.
+            """
+        )
+
+    st.subheader("Today’s Signals")
+    st.info("Signal feed will appear here once we connect the scanner output to saved daily results.")
+
+    st.subheader("Recent Trades")
+    st.info("Trade journal will appear here once we add the trade log data source.")
+
+
+def display_trade_journal_page():
+    st.title("Trade Journal")
+    st.caption("A searchable record of entries, exits, P/L, setup notes, and lessons learned.")
+    st.info("Coming next: trade log table, filters, trade detail view, and automatic IBKR fill imports.")
+
+
+def display_bot_control_center_page():
+    st.title("Bot Control Center")
+    st.caption("Monitor scanner status, IBKR connection, order engine, logs, and automation controls.")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Scanner", "Manual")
+    col2.metric("Trade Engine", "Local")
+    col3.metric("IBKR", "TWS Required")
+    col4.metric("Mode", "Paper")
+
+    st.warning("Automation controls are intentionally disabled until the signal-to-order workflow is fully tested.")
+    st.subheader("Planned Controls")
+    st.markdown(
+        """
+        - Run scanner now
+        - Enable / disable paper trading
+        - Max open positions
+        - Dollar size per trade
+        - Daily loss limit
+        - Kill switch
+        - View order logs
+        """
+    )
+
+
+def display_settings_page():
+    st.title("Settings")
+    st.caption("Platform configuration, credentials, risk limits, and deployment notes.")
+
+    st.subheader("Login")
+    st.write("Username and password are now read from Render Environment Variables.")
+
+    st.subheader("Risk Defaults")
+    st.write("Current planned stock trade size: **$1,000 per trade**.")
+
+    st.subheader("IBKR Setup")
+    st.markdown(
+        """
+        Local IBKR paper trading requires:
+        - TWS Paper Trading open
+        - API enabled
+        - Socket port 7497
+        - Read-Only API unchecked
+        - Local Python trade engine running on your PC
+        """
+    )
+
+
 # -----------------------------
 # Sidebar Inputs
 # -----------------------------
 
+st.sidebar.title("VPA TradingBot")
+st.sidebar.caption("VOLUME · PRICE · ANALYSIS")
+st.sidebar.success(f"Logged in as {APP_USERNAME}")
+
+if st.sidebar.button("Logout", use_container_width=True):
+    st.session_state.authenticated = False
+    st.rerun()
+
+st.sidebar.divider()
+
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Select Page",
-    ["Portfolio Backtest", "Market Scanner", "Performance Tracker"],
+    [
+        "Dashboard",
+        "Market Scanner",
+        "Performance",
+        "Trade Journal",
+        "Bot Control Center",
+        "Settings",
+    ],
     index=0
 )
 
 st.sidebar.divider()
 
-if page in ["Portfolio Backtest", "Market Scanner"]:
+if page == "Market Scanner":
     st.sidebar.header("Strategy Inputs")
 
-    if page == "Portfolio Backtest":
-        ticker_text = st.sidebar.text_area(
-            "Tickers",
-            value="SPY",
-            help="Enter one or more tickers separated by commas, spaces, or new lines."
+    universe_choice = st.sidebar.selectbox(
+        "Scanner Universe",
+        ["S&P 500", "Nasdaq 100", "Both", "Custom List"],
+        index=0
+    )
+
+    custom_scanner_tickers = ""
+    if universe_choice == "Custom List":
+        custom_scanner_tickers = st.sidebar.text_area(
+            "Custom Scanner Tickers",
+            value="SPY, QQQ, TLT, AAPL, MSFT, NVDA, AMZN, META, GOOGL",
+            help="Enter tickers separated by commas, spaces, or new lines."
         )
 
-    elif page == "Market Scanner":
-        universe_choice = st.sidebar.selectbox(
-            "Scanner Universe",
-            ["S&P 500", "Nasdaq 100", "Both", "Custom List"],
-            index=0
-        )
-
-        custom_scanner_tickers = ""
-        if universe_choice == "Custom List":
-            custom_scanner_tickers = st.sidebar.text_area(
-                "Custom Scanner Tickers",
-                value="SPY, QQQ, TLT, AAPL, MSFT, NVDA, AMZN, META, GOOGL",
-                help="Enter tickers separated by commas, spaces, or new lines."
-            )
-
-        max_tickers = st.sidebar.number_input(
-            "Max Tickers to Scan",
-            min_value=10,
-            max_value=700,
-            value=100,
-            step=10,
-            help="Use a smaller number first for speed. Increase once you know it works."
-        )
+    max_tickers = st.sidebar.number_input(
+        "Max Tickers to Scan",
+        min_value=10,
+        max_value=700,
+        value=100,
+        step=10,
+        help="Use a smaller number first for speed. Increase once you know it works."
+    )
 
     period = st.sidebar.selectbox(
         "Historical Period",
         ["6mo", "1y", "2y", "3y", "5y", "10y"],
-        index=3
+        index=0
     )
 
     interval = st.sidebar.selectbox(
         "Interval",
-        ["1d", "1h", "30m", "15m"],
-        index=0,
-        help="Intraday intervals may be limited by Yahoo Finance history availability."
+        ["1d"],
+        index=0
     )
 
     st.sidebar.subheader("VPA Settings")
@@ -980,157 +1139,25 @@ if page in ["Portfolio Backtest", "Market Scanner"]:
     stop_loss = st.sidebar.slider("Stop Loss %", 1, 50, 4) / 100
     take_profit = st.sidebar.slider("Take Profit %", 1, 100, 8) / 100
 
-elif page == "Performance Tracker":
-    st.sidebar.header("Performance Tracker")
+elif page == "Performance":
+    st.sidebar.header("Performance")
     st.sidebar.caption("Reads `Performance Tracker.xlsx` from the app folder.")
     st.sidebar.info("Upload the workbook to GitHub beside the app file before deploying.")
 
+elif page == "Bot Control Center":
+    st.sidebar.header("Bot Controls")
+    st.sidebar.caption("Paper-trading controls will be added after signal routing is tested.")
+    st.sidebar.metric("Trade Size", "$1,000")
+    st.sidebar.metric("Mode", "Paper")
 
 # -----------------------------
-# Page 1: Portfolio Backtest
+# Page Router
 # -----------------------------
 
-if page == "Portfolio Backtest":
-    st.title("VPA TradingBot")
-    st.caption("Volume Price Analysis trading research dashboard. Educational only. Not financial advice.")
+if page == "Dashboard":
+    display_home_dashboard()
 
-    run_button = st.button("Run Portfolio Backtest", type="primary")
-
-    if run_button:
-        tickers = parse_tickers(ticker_text)
-
-        if not tickers:
-            st.error("Please enter at least one ticker.")
-            st.stop()
-
-        cash_per_ticker = initial_cash / len(tickers)
-
-        summaries = []
-        equity_curves = {}
-        data_by_ticker = {}
-        trades_by_ticker = {}
-        errors = []
-
-        progress = st.progress(0)
-        status = st.empty()
-
-        for idx, ticker in enumerate(tickers):
-            status.write(f"Running backtest for {ticker}...")
-
-            try:
-                df, trades, equity, summary = run_strategy_for_ticker(
-                    ticker=ticker,
-                    period=period,
-                    interval=interval,
-                    initial_cash=cash_per_ticker,
-                    stop_loss=stop_loss,
-                    take_profit=take_profit,
-                    vol_window=vol_window,
-                    trend_window=trend_window,
-                    stopping_window=stopping_window,
-                    high_volume_threshold=high_volume_threshold,
-                    low_volume_threshold=low_volume_threshold,
-                    wide_spread_threshold=wide_spread_threshold,
-                    narrow_spread_threshold=narrow_spread_threshold
-                )
-
-                summaries.append(summary)
-                equity_curves[ticker] = equity
-                data_by_ticker[ticker] = df
-                trades_by_ticker[ticker] = trades
-
-            except Exception as e:
-                errors.append({"Ticker": ticker, "Error": str(e)})
-
-            progress.progress((idx + 1) / len(tickers))
-
-        status.empty()
-
-        if not summaries:
-            st.error("No tickers successfully completed.")
-            if errors:
-                st.dataframe(pd.DataFrame(errors), use_container_width=True)
-            st.stop()
-
-        summary_df = pd.DataFrame(summaries).sort_values("Total Return %", ascending=False)
-
-        combined_equity = pd.concat(equity_curves.values(), axis=1)
-        combined_equity.columns = list(equity_curves.keys())
-        portfolio_equity = combined_equity.ffill().sum(axis=1)
-
-        final_portfolio_equity = float(portfolio_equity.iloc[-1]) if not portfolio_equity.empty else float(initial_cash)
-        portfolio_total_return = (final_portfolio_equity / initial_cash - 1) * 100
-        total_trades = int(summary_df["Number of Trades"].sum())
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Final Portfolio Equity", f"${final_portfolio_equity:,.2f}")
-        col2.metric("Portfolio Total Return", f"{portfolio_total_return:.2f}%")
-        col3.metric("Number of Trades", total_trades)
-        col4.metric("Tickers Tested", len(summary_df))
-
-        st.subheader("Portfolio Equity Curve")
-        st.plotly_chart(
-            make_equity_chart(portfolio_equity, title="Portfolio Equity Curve"),
-            use_container_width=True,
-            config={"scrollZoom": True, "displayModeBar": True}
-        )
-
-        st.subheader("Ticker Results")
-        st.dataframe(
-            summary_df.style.format({
-                "Initial Cash": "${:,.2f}",
-                "Final Equity": "${:,.2f}",
-                "Total Return %": "{:.2f}%",
-                "Win Rate %": "{:.2f}%",
-                "Max Drawdown %": "{:.2f}%",
-                "Last Close": "${:,.2f}"
-            }),
-            use_container_width=True
-        )
-
-        selected_ticker = st.selectbox(
-            "Select ticker to inspect",
-            list(summary_df["Ticker"]),
-            index=0
-        )
-
-        st.subheader(f"{selected_ticker} Price Chart")
-        st.plotly_chart(
-            make_price_chart(
-                data_by_ticker[selected_ticker],
-                trades_by_ticker[selected_ticker],
-                title=f"{selected_ticker} Price Chart with Buy/Sell Signals and Volume"
-            ),
-            use_container_width=True,
-            config={"scrollZoom": True, "displayModeBar": True}
-        )
-
-        st.subheader(f"{selected_ticker} Equity Curve")
-        st.plotly_chart(
-            make_equity_chart(
-                equity_curves[selected_ticker],
-                title=f"{selected_ticker} Equity Curve"
-            ),
-            use_container_width=True,
-            config={"scrollZoom": True, "displayModeBar": True}
-        )
-
-        st.subheader(f"{selected_ticker} Trades")
-        display_trades_table(trades_by_ticker[selected_ticker])
-
-        if errors:
-            with st.expander("Tickers with errors"):
-                st.dataframe(pd.DataFrame(errors), use_container_width=True)
-
-    else:
-        st.info("Adjust the inputs on the left, then click Run Portfolio Backtest.")
-
-
-# -----------------------------
-# Page 2: Market Scanner
-# -----------------------------
-
-else:
+elif page == "Market Scanner":
     st.title("VPA Market Scanner")
     st.caption("Scans S&P 500 and/or Nasdaq 100 tickers using the same strategy settings, then ranks by Total Return %. Educational only. Not financial advice.")
 
@@ -1285,7 +1312,14 @@ else:
     else:
         st.info("Choose your scanner universe and settings on the left, then click Run Market Scanner.")
 
-
-# Page 3: Performance Tracker
-if page == "Performance Tracker":
+elif page == "Performance":
     display_performance_tracker_page()
+
+elif page == "Trade Journal":
+    display_trade_journal_page()
+
+elif page == "Bot Control Center":
+    display_bot_control_center_page()
+
+elif page == "Settings":
+    display_settings_page()
