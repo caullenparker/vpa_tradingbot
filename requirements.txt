@@ -1,9 +1,7 @@
 streamlit
+plotly
 pandas
 numpy
 yfinance
-plotly
-requests
-lxml
-html5lib
+ib-insync
 openpyxl
