@@ -32,6 +32,7 @@ def initialize_theme():
         return
 
     query_theme = st.query_params.get("theme")
+
     if query_theme in THEMES:
         st.session_state.theme_mode = query_theme
     else:
@@ -48,21 +49,21 @@ def set_theme(theme_name: str):
 
 def apply_theme():
     initialize_theme()
-    t = THEMES[st.session_state.theme_mode]
+    theme = THEMES[st.session_state.theme_mode]
 
     st.markdown(
         f"""
         <style>
             :root {{
-                --bg: {t["bg"]};
-                --sidebar: {t["sidebar"]};
-                --card: {t["card"]};
-                --text: {t["text"]};
-                --muted: {t["muted"]};
-                --border: {t["border"]};
-                --input: {t["input"]};
-                --accent: {t["accent"]};
-                --accent-hover: {t["accent_hover"]};
+                --bg: {theme["bg"]};
+                --sidebar: {theme["sidebar"]};
+                --card: {theme["card"]};
+                --text: {theme["text"]};
+                --muted: {theme["muted"]};
+                --border: {theme["border"]};
+                --input: {theme["input"]};
+                --accent: {theme["accent"]};
+                --accent-hover: {theme["accent_hover"]};
             }}
 
             .stApp {{
@@ -79,13 +80,24 @@ def apply_theme():
                 border-right: 1px solid var(--border);
             }}
 
+            section[data-testid="stSidebar"] * {{
+                color: var(--text);
+            }}
+
             .block-container {{
                 max-width: 1500px;
                 padding-top: 2rem;
                 padding-bottom: 3rem;
             }}
 
-            h1, h2, h3, h4, h5, h6, p, label {{
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            p,
+            label {{
                 color: var(--text);
             }}
 
@@ -122,16 +134,6 @@ def apply_theme():
 
             hr {{
                 border-color: var(--border);
-            }}
-
-            .clc-login-card {{
-                max-width: 500px;
-                margin: 5vh auto 0 auto;
-                background: var(--card);
-                border: 1px solid var(--border);
-                border-radius: 20px;
-                padding: 2rem 2.1rem 1.65rem;
-                box-shadow: 0 28px 80px rgba(0, 0, 0, 0.14);
             }}
 
             .clc-logo-wrap {{
