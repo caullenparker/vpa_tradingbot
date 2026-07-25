@@ -1,8 +1,0 @@
-streamlit
-plotly
-pandas
-numpy
-yfinance
-ib-insync
-openpyxl
-lxml
