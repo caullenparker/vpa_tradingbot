@@ -627,7 +627,31 @@ TRACKER_FILE = os.getenv("PERFORMANCE_TRACKER_FILE", "Performance Tracker.xlsx")
 
 
 def _excel_serial_to_datetime(series):
-    return pd.to_datetime(series, unit="D", origin="1899-12-30", errors="coerce")
+    """
+    Handles Excel dates whether pandas/openpyxl returns them as
+    actual datetime objects, date strings, or Excel serial numbers.
+    """
+    result = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
+
+    numeric_values = pd.to_numeric(series, errors="coerce")
+    numeric_mask = numeric_values.notna()
+
+    if numeric_mask.any():
+        result.loc[numeric_mask] = pd.to_datetime(
+            numeric_values.loc[numeric_mask],
+            unit="D",
+            origin="1899-12-30",
+            errors="coerce"
+        )
+
+    non_numeric_mask = ~numeric_mask
+    if non_numeric_mask.any():
+        result.loc[non_numeric_mask] = pd.to_datetime(
+            series.loc[non_numeric_mask],
+            errors="coerce"
+        )
+
+    return result
 
 
 def _numeric_clean(series):
